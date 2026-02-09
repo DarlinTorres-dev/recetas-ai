@@ -4,16 +4,13 @@ export function healthRoutes({ url, method }) {
       JSON.stringify({
         status: "ok",
         service: "recetas-ai-api",
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString()
       }),
       {
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" }
       }
     );
   }
 
-  // Si no coincide, no responde
   return null;
 }

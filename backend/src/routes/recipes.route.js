@@ -5,14 +5,13 @@ export function recipesRoute(request) {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const recipes = getRecipes(); // fake data
+  const recipes = getRecipes();
 
   return new Response(JSON.stringify(recipes), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*", // ✅ permite que el frontend haga fetch
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    },
+      "Access-Control-Allow-Origin": "*"
+    }
   });
 }
