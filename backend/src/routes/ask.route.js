@@ -1,19 +1,16 @@
-import OpenAI from "openai";
-
 /**
- * Ruta /api/ask para generar recetas con OpenAI
- * Compatible con:
- * - Cloudflare Workers (ENV.OPENAI_API_KEY)
- * - Node local (process.env.OPENAI_API_KEY)
+ * Ruta /api/ask usando IA LOCAL (Ollama)
+ * Requisitos:
+ * - Ollama corriendo: ollama serve
+ * - Modelo descargado: llama3
+ * - Ejecutar backend con: wrangler dev --local
  */
-export async function askRoute(request, ENV = {}) {
-  // Solo POST
+export async function askRoute(request) {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
   try {
-    // Leer body
     const body = await request.json();
     const question = body.question?.trim();
 
@@ -27,77 +24,49 @@ export async function askRoute(request, ENV = {}) {
       );
     }
 
-    // === Obtener API KEY de forma SEGURA ===
-    let apiKey;
+    const prompt = `
+Eres un chef experto.
+Da recetas claras, detalladas y fáciles de seguir.
 
-    // Cloudflare Workers
-    if (ENV && ENV.OPENAI_API_KEY) {
-      apiKey = ENV.OPENAI_API_KEY;
-    }
-    // Node local
-    else if (
-      typeof process !== "undefined" &&
-      process.env &&
-      process.env.OPENAI_API_KEY
-    ) {
-      apiKey = process.env.OPENAI_API_KEY;
-    }
+Pregunta:
+${question}
 
-    if (!apiKey) {
-      console.error("OPENAI_API_KEY no configurada");
-      return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY no configurada" }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
-    }
+Devuelve la receta paso a paso.
+`;
 
-    console.log("OPENAI_API_KEY detectada");
-
-    // === Cliente OpenAI (OBLIGATORIO pasar fetch en Workers) ===
-    const client = new OpenAI({
-      apiKey,
-      fetch
+    const ollamaResponse = await fetch("http://127.0.0.1:11434/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama3",
+        prompt,
+        stream: false
+      })
     });
 
-    // === Llamada a OpenAI (API nueva Responses) ===
-    const response = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
-        {
-          role: "system",
-          content:
-            "Eres un chef experto que da recetas claras, detalladas y fáciles de seguir."
-        },
-        {
-          role: "user",
-          content: `Dame una receta para: ${question}`
-        }
-      ],
-      temperature: 0.7,
-      max_output_tokens: 500
-    });
+    if (!ollamaResponse.ok) {
+      const text = await ollamaResponse.text();
+      throw new Error(`Ollama error: ${text}`);
+    }
 
-    const answer =
-      response.output_text ||
-      "No se pudo generar la receta.";
+    const data = await ollamaResponse.json();
 
     return new Response(
-      JSON.stringify({ answer }),
+      JSON.stringify({
+        answer: data.response?.trim() || "Sin respuesta"
+      }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" }
       }
     );
   } catch (err) {
-    console.error("Error en /api/ask:", err);
+    console.error("Error /api/ask:", err);
 
     return new Response(
       JSON.stringify({
         error: "Error al generar la receta",
-        details: err?.message || "Error desconocido"
+        details: err.message
       }),
       {
         status: 500,

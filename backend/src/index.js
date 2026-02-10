@@ -1,7 +1,7 @@
-import { router } from "./router";
+import { router } from "./router.js";
 
 export default {
-  fetch(request, env, ctx) {
+  async fetch(request, env, ctx) {
     return router(request, env);
   }
 };

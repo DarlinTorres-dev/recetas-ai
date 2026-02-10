@@ -1,12 +1,20 @@
-import { healthRoutes } from "./routes/health.routes";
-import { recipesRoute } from "./routes/recipes.route";
-import { askRoute } from "./routes/ask.route";
+import { healthRoutes } from "./routes/health.routes.js";
+import { recipesRoute } from "./routes/recipes.route.js";
+import { askRoute } from "./routes/ask.route.js";
 
+/**
+ * Router principal del Worker
+ * Compatible con:
+ * - Cloudflare Workers (wrangler dev / deploy)
+ * - IA local vía Ollama
+ */
 export async function router(request, ENV = {}) {
   const url = new URL(request.url);
   const method = request.method;
 
-  // CORS preflight
+  // =========================
+  // CORS PREFLIGHT
+  // =========================
   if (method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -18,24 +26,36 @@ export async function router(request, ENV = {}) {
     });
   }
 
+  // =========================
+  // HEALTH CHECK
+  // =========================
   const healthResponse = healthRoutes({ url, method });
   if (healthResponse) {
     healthResponse.headers.set("Access-Control-Allow-Origin", "*");
     return healthResponse;
   }
 
+  // =========================
+  // RECETAS MOCK / DB
+  // =========================
   if (url.pathname === "/api/recipes") {
-    const res = recipesRoute(request);
+    const res = await recipesRoute(request);
     res.headers.set("Access-Control-Allow-Origin", "*");
     return res;
   }
 
+  // =========================
+  // IA (OLLAMA LOCAL)
+  // =========================
   if (url.pathname === "/api/ask") {
-    const res = await askRoute(request, ENV);
+    const res = await askRoute(request);
     res.headers.set("Access-Control-Allow-Origin", "*");
     return res;
   }
 
+  // =========================
+  // NOT FOUND
+  // =========================
   return new Response(
     JSON.stringify({ error: "Not Found" }),
     {
